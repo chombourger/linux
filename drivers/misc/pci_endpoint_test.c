@@ -924,6 +924,7 @@ static const struct pci_endpoint_test_data j721e_data = {
 };
 
 static const struct pci_device_id pci_endpoint_test_tbl[] = {
+	{ PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, 0x81c0) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_SYNOPSYS, 0xedda) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_DRA74x),
 	  .driver_data = (kernel_ulong_t)&default_data,
