@@ -464,6 +464,7 @@ static void send_supervision_frame(struct hsr_prp_port *master,
 		goto out;
 	skb_reset_mac_header(skb);
 	skb_reset_network_header(skb);
+	skb_reset_transport_header(skb);
 
 	if (priv->use_vlan_for_sv) {
 		vhdr = skb_put(skb, VLAN_HLEN);
