@@ -23,6 +23,8 @@ static rx_handler_result_t handle_frame(struct sk_buff **pskb)
 
 	rcu_read_lock(); /* hsr->node_db, hsr->ports */
 	port = hsr_prp_port_get_rcu(skb->dev);
+	if (!port)
+		goto finish_pass;
 	priv = port->priv;
 
 	if (!skb_mac_header_was_set(skb)) {
