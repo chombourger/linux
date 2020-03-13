@@ -211,15 +211,16 @@ int hsr_prp_get_node_status(struct genl_family *genl_family,
 	if (!na)
 		goto invalid;
 
-	ndev = __dev_get_by_index(genl_info_net(info),
-				  nla_get_u32(info->attrs[HSR_PRP_A_IFINDEX]));
+	rcu_read_lock();
+	ndev = dev_get_by_index_rcu(genl_info_net(info),
+				    nla_get_u32(info->attrs[HSR_PRP_A_IFINDEX]));
 	if (!ndev)
-		goto invalid;
+		goto rcu_unlock;
 	if (!is_hsr_prp_master(ndev))
-		goto invalid;
+		goto rcu_unlock;
 
 	/* Send reply */
-	skb_out = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+	skb_out = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
 	if (!skb_out) {
 		res = -ENOMEM;
 		goto fail;
@@ -270,12 +271,10 @@ int hsr_prp_get_node_status(struct genl_family *genl_family,
 	res = nla_put_u16(skb_out, HSR_PRP_A_IF1_SEQ, hsr_node_if1_seq);
 	if (res < 0)
 		goto nla_put_failure;
-	rcu_read_lock();
 	port = hsr_prp_get_port(priv, HSR_PRP_PT_SLAVE_A);
 	if (port)
 		res = nla_put_u32(skb_out, HSR_PRP_A_IF1_IFINDEX,
 				  port->dev->ifindex);
-	rcu_read_unlock();
 	if (res < 0)
 		goto nla_put_failure;
 
@@ -285,20 +284,22 @@ int hsr_prp_get_node_status(struct genl_family *genl_family,
 	res = nla_put_u16(skb_out, HSR_PRP_A_IF2_SEQ, hsr_node_if2_seq);
 	if (res < 0)
 		goto nla_put_failure;
-	rcu_read_lock();
 	port = hsr_prp_get_port(priv, HSR_PRP_PT_SLAVE_B);
 	if (port)
 		res = nla_put_u32(skb_out, HSR_PRP_A_IF2_IFINDEX,
 				  port->dev->ifindex);
-	rcu_read_unlock();
 	if (res < 0)
 		goto nla_put_failure;
+
+	rcu_read_unlock();
 
 	genlmsg_end(skb_out, msg_head);
 	genlmsg_unicast(genl_info_net(info), skb_out, info->snd_portid);
 
 	return 0;
 
+rcu_unlock:
+	rcu_read_unlock();
 invalid:
 	netlink_ack(skb_in, nlmsg_hdr(skb_in), -EINVAL, NULL);
 	return 0;
@@ -308,6 +309,7 @@ nla_put_failure:
 	/* Fall through */
 
 fail:
+	rcu_read_unlock();
 	return res;
 }
 
@@ -335,15 +337,16 @@ int hsr_prp_get_node_list(struct genl_family *genl_family,
 	if (!na)
 		goto invalid;
 
-	ndev = __dev_get_by_index(genl_info_net(info),
-				  nla_get_u32(info->attrs[HSR_PRP_A_IFINDEX]));
+	rcu_read_lock();
+	ndev = dev_get_by_index_rcu(genl_info_net(info),
+				    nla_get_u32(info->attrs[HSR_PRP_A_IFINDEX]));
 	if (!ndev)
-		goto invalid;
+		goto rcu_unlock;
 	if (!is_hsr_prp_master(ndev))
-		goto invalid;
+		goto rcu_unlock;
 
 	/* Send reply */
-	skb_out = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+	skb_out = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
 	if (!skb_out) {
 		res = -ENOMEM;
 		goto fail;
@@ -363,19 +366,17 @@ int hsr_prp_get_node_list(struct genl_family *genl_family,
 
 	priv = netdev_priv(ndev);
 
-	rcu_read_lock();
 	pos = hsr_prp_get_next_node(priv, NULL, addr);
 	while (pos) {
 		if (!hsr_prp_addr_is_self(priv, addr)) {
 			res = nla_put(skb_out, HSR_PRP_A_NODE_ADDR,
 				      ETH_ALEN, addr);
-			if (res < 0) {
-				rcu_read_unlock();
+			if (res < 0)
 				goto nla_put_failure;
-			}
 		}
 		pos = hsr_prp_get_next_node(priv, pos, addr);
 	}
+
 	rcu_read_unlock();
 
 	genlmsg_end(skb_out, msg_head);
@@ -383,6 +384,8 @@ int hsr_prp_get_node_list(struct genl_family *genl_family,
 
 	return 0;
 
+rcu_unlock:
+	rcu_read_unlock();
 invalid:
 	netlink_ack(skb_in, nlmsg_hdr(skb_in), -EINVAL, NULL);
 	return 0;
@@ -392,5 +395,6 @@ nla_put_failure:
 	/* Fall through */
 
 fail:
+	rcu_read_unlock();
 	return res;
 }

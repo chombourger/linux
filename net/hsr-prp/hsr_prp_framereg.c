@@ -485,10 +485,8 @@ int hsr_prp_get_node_data(struct hsr_prp_priv *priv,
 	struct hsr_prp_port *port;
 	unsigned long tdiff;
 
-	rcu_read_lock();
 	node = find_node_by_addr_A(&priv->node_db, addr);
 	if (!node) {
-		rcu_read_unlock();
 		return -ENOENT;	/* No such entry */
 	}
 
@@ -524,8 +522,6 @@ int hsr_prp_get_node_data(struct hsr_prp_priv *priv,
 	} else {
 		*addr_b_ifindex = -1;
 	}
-
-	rcu_read_unlock();
 
 	return 0;
 }
