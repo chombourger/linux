@@ -169,15 +169,15 @@ int hsr_prp_add_port(struct hsr_prp_priv *priv, struct net_device *dev,
 	if (!port)
 		return -ENOMEM;
 
+	port->priv = priv;
+	port->dev = dev;
+	port->type = type;
+
 	if (type != HSR_PRP_PT_MASTER) {
 		res = portdev_setup(dev, port);
 		if (res)
 			goto fail_dev_setup;
 	}
-
-	port->priv = priv;
-	port->dev = dev;
-	port->type = type;
 
 	list_add_tail_rcu(&port->port_list, &priv->ports);
 	synchronize_rcu();
