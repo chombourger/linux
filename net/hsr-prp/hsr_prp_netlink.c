@@ -63,10 +63,18 @@ int hsr_prp_newlink(int proto, struct net *src_net,
 	if (proto == PRP) {
 		version = PRP_V1;
 	} else {
-		if (!data[IFLA_HSR_VERSION])
+		if (!data[IFLA_HSR_VERSION]) {
 			version = 0;
-		else
+		}
+		else {
 			version = nla_get_u8(data[IFLA_HSR_VERSION]);
+			if (version > 1) {
+				NL_SET_ERR_MSG_MOD(extack,
+						   "Only versions 0..1 are supported");
+				return -EINVAL;
+			}
+
+		}
 	}
 
 	if (data[IFLA_HSR_PRP_SV_VID]) {
