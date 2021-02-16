@@ -265,10 +265,14 @@ static int am33xx_pm_enter(suspend_state_t suspend_state)
 static int am33xx_pm_begin(suspend_state_t state)
 {
 	int ret = -EINVAL;
+	struct nvmem_device *nvmem;
 
 	if (state == PM_SUSPEND_MEM && pm_ops->check_off_mode_enable()) {
-		nvmem_device_write(omap_rtc->nvmem, RTC_SCRATCH_MAGIC_REG * 4,
-				   4, (void *)&rtc_magic_val);
+		nvmem = devm_nvmem_device_get(&omap_rtc->dev,
+				              "omap_rtc_scratch0");
+		if (!IS_ERR(nvmem))
+			nvmem_device_write(nvmem, RTC_SCRATCH_MAGIC_REG * 4,
+					   4, (void *)&rtc_magic_val);
 		rtc_only_idle = 1;
 	} else {
 		rtc_only_idle = 0;
@@ -291,6 +295,11 @@ static int am33xx_pm_begin(suspend_state_t state)
 static void am33xx_pm_end(void)
 {
 	u32 val = 0;
+	struct nvmem_device *nvmem;
+
+	nvmem = devm_nvmem_device_get(&omap_rtc->dev, "omap_rtc_scratch0");
+	if (IS_ERR(nvmem))
+		return;
 
 	m3_ipc->ops->finish_low_power(m3_ipc);
 	if (rtc_only_idle) {
@@ -305,9 +314,8 @@ static void am33xx_pm_end(void)
 			writel_relaxed(1 << (retrigger_irq & 31),
 				       gic_dist_base + GIC_INT_SET_PENDING_BASE
 				       + retrigger_irq / 32 * 4);
-			nvmem_device_write(omap_rtc->nvmem,
-					   RTC_SCRATCH_MAGIC_REG * 4,
-					   4, (void *)&val);
+			nvmem_device_write(nvmem, RTC_SCRATCH_MAGIC_REG * 4, 4,
+					   (void *)&val);
 	}
 
 	rtc_only_idle = 0;
@@ -419,6 +427,7 @@ static int am33xx_pm_rtc_setup(void)
 {
 	struct device_node *np;
 	unsigned long val = 0;
+	struct nvmem_device *nvmem;
 
 	np = of_find_node_by_name(NULL, "rtc");
 
@@ -429,16 +438,20 @@ static int am33xx_pm_rtc_setup(void)
 			return -EPROBE_DEFER;
 		}
 
-		nvmem_device_read(omap_rtc->nvmem, RTC_SCRATCH_MAGIC_REG * 4,
-				  4, (void *)&rtc_magic_val);
-		if ((rtc_magic_val & 0xffff) != RTC_REG_BOOT_MAGIC)
-			pr_warn("PM: bootloader does not support rtc-only!\n");
+		nvmem = devm_nvmem_device_get(&omap_rtc->dev,
+					      "omap_rtc_scratch0");
+		if (!IS_ERR(nvmem)) {
+			nvmem_device_read(nvmem, RTC_SCRATCH_MAGIC_REG * 4,
+					  4, (void *)&rtc_magic_val);
+			if ((rtc_magic_val & 0xffff) != RTC_REG_BOOT_MAGIC)
+				pr_warn("PM: bootloader does not support rtc-only!\n");
 
-		nvmem_device_write(omap_rtc->nvmem, RTC_SCRATCH_MAGIC_REG * 4,
-				   4, (void *)&val);
-		val = pm_sram->resume_address;
-		nvmem_device_write(omap_rtc->nvmem, RTC_SCRATCH_RESUME_REG * 4,
-				   4, (void *)&val);
+			nvmem_device_write(nvmem, RTC_SCRATCH_MAGIC_REG * 4, 4,
+					   (void *)&val);
+			val = pm_sram->resume_address;
+			nvmem_device_write(nvmem, RTC_SCRATCH_RESUME_REG * 4,
+					   4, (void *)&val);
+		}
 	} else {
 		pr_warn("PM: no-rtc available, rtc-only mode disabled.\n");
 	}
